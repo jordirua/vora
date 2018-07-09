@@ -1,0 +1,258 @@
+#################################
+# SAP HANA VORA 1.3 TIME SERIES #
+#################################
+
+clear
+rm adv_sale.csv
+hdfs dfs -rm /user/cluster_admin/adv_sale.csv
+
+echo 'TS,ADV,SALE' >> adv_sale.csv
+echo '2014-01-01 00:00:00.0,12.0,15.0' >> adv_sale.csv
+echo '2014-02-01 00:00:00.0,20.5,16.0' >> adv_sale.csv
+echo '2014-03-01 00:00:00.0,21.0,18.0' >> adv_sale.csv
+echo '2014-04-01 00:00:00.0,15.5,27.0' >> adv_sale.csv
+echo '2014-05-01 00:00:00.0,15.3,21.0' >> adv_sale.csv
+echo '2014-06-01 00:00:00.0,23.5,49.0' >> adv_sale.csv
+echo '2014-07-01 00:00:00.0,24.5,21.0' >> adv_sale.csv
+echo '2014-08-01 00:00:00.0,21.3,22.0' >> adv_sale.csv
+echo '2014-09-01 00:00:00.0,23.5,28.0' >> adv_sale.csv
+echo '2014-10-01 00:00:00.0,28.0,36.0' >> adv_sale.csv
+echo '2014-11-01 00:00:00.0,24.0,40.0' >> adv_sale.csv
+echo '2014-12-01 00:00:00.0,15.5,3.0' >> adv_sale.csv
+echo '2015-01-01 00:00:00.0,17.3,21.0' >> adv_sale.csv
+echo '2015-02-01 00:00:00.0,25.3,29.0' >> adv_sale.csv
+echo '2015-03-01 00:00:00.0,25.0,62.0' >> adv_sale.csv
+echo '2015-04-01 00:00:00.0,36.5,65.0' >> adv_sale.csv
+echo '2015-05-01 00:00:00.0,36.5,46.0' >> adv_sale.csv
+echo '2015-06-01 00:00:00.0,29.6,44.0' >> adv_sale.csv
+echo '2015-07-01 00:00:00.0,30.5,33.0' >> adv_sale.csv
+echo '2015-08-01 00:00:00.0,28.0,62.0' >> adv_sale.csv
+echo '2015-09-01 00:00:00.0,26.0,22.0' >> adv_sale.csv
+echo '2015-10-01 00:00:00.0,21.5,12.0' >> adv_sale.csv
+echo '2015-11-01 00:00:00.0,19.7,24.0' >> adv_sale.csv
+echo '2015-12-01 00:00:00.0,19.0,3.0' >> adv_sale.csv
+echo '2016-01-01 00:00:00.0,16.0,5.0' >> adv_sale.csv
+echo '2016-02-01 00:00:00.0,20.7,14.0' >> adv_sale.csv
+echo '2016-03-01 00:00:00.0,26.5,36.0' >> adv_sale.csv
+echo '2016-04-01 00:00:00.0,30.6,40.0' >> adv_sale.csv
+echo '2016-05-01 00:00:00.0,32.3,49.0' >> adv_sale.csv
+echo '2016-06-01 00:00:00.0,29.5,7.0' >> adv_sale.csv
+echo '2016-07-01 00:00:00.0,28.3,52.0' >> adv_sale.csv
+echo '2016-08-01 00:00:00.0,31.3,65.0' >> adv_sale.csv
+echo '2016-09-01 00:00:00.0,32.2,17.0' >> adv_sale.csv
+echo '2016-10-01 00:00:00.0,26.4,5.0' >> adv_sale.csv
+echo '2016-11-01 00:00:00.0,23.4,17.0' >> adv_sale.csv
+echo '2016-12-01 00:00:00.0,16.4,1.0' >> adv_sale.csv
+
+hdfs dfs -put adv_sale.csv /user/cluster_admin
+hdfs dfs -cat /user/cluster_admin/adv_sale.csv
+
+############################
+### NOT USING PARTITIONS ###
+############################
+
+DROP SERIES TABLE ADV_SALE USING com.sap.spark.engines;
+
+CREATE TABLE ADV_SALE (TS TIMESTAMP, ADV double, SALE double) 
+SERIES 
+(
+PERIOD FOR SERIES TS 
+START TIMESTAMP '2014-01-01 00:00:00' 
+END TIMESTAMP '2016-12-01 00:00:00'
+) 
+USING com.sap.spark.engines 
+OPTIONS (files "/user/cluster_admin/adv_sale.csv",
+csvskip "1");
+
+########################
+### USING PARTITIONS ###
+########################
+
+DROP SERIES TABLE ADV_SALE USING com.sap.spark.engines;
+DROP PARTITION SCHEME PS_TS USING com.sap.spark.engines;
+DROP PARTITION FUNCTION PF_TS USING com.sap.spark.engines;
+
+CREATE PARTITION FUNCTION PF_TS(TS TIMESTAMP) AS RANGE 
+BOUNDARIES(TIMESTAMP '2014-01-01 00:00:00', TIMESTAMP '2016-12-01 00:00:00') 
+USING com.sap.spark.engines;
+
+CREATE PARTITION SCHEME PS_TS USING PF_TS USING com.sap.spark.engines;
+
+CREATE TABLE ADV_SALE (TS TIMESTAMP, ADV double, SALE double) 
+SERIES 
+(
+PERIOD FOR SERIES TS 
+START TIMESTAMP '2014-01-01 00:00:00' 
+END TIMESTAMP '2016-12-01 00:00:00'
+) 
+PARTITION BY PS_TS(TS) USING com.sap.spark.engines 
+OPTIONS (files "/user/cluster_admin/adv_sale.csv",
+csvskip "1");
+
+``SELECT * FROM ADV_SALE`` USING com.sap.spark.engines;
+
+###########################
+### COMPRESSION EXAMPLE ###
+###########################
+
+DROP SERIES TABLE ADV_SALE USING com.sap.spark.engines;
+
+CREATE TABLE ADV_SALE (TS TIMESTAMP, ADV double, SALE double) 
+SERIES 
+(
+PERIOD FOR SERIES TS 
+START TIMESTAMP '2014-01-01 00:00:00' 
+END TIMESTAMP '2016-12-01 00:00:00'
+DEFAULT COMPRESSION USE (AUTO ERROR 1.2 PERCENT)
+COMPRESSION ON ADV
+USE (APCA ERROR 1.2 PERCENT)
+) 
+PARTITION BY PS_TS(TS) USING com.sap.spark.engines 
+OPTIONS (files "/user/cluster_admin/adv_sale.csv",
+csvskip "1");
+
+``SELECT * FROM ADV_SALE`` USING com.sap.spark.engines;
+
+#######################
+### RE-LOADING DATA ###
+#######################
+
+``LOAD TABLE ADV_SALE`` USING com.sap.spark.engines;
+
+###############
+### QUERIES ###
+###############
+
+``SELECT * FROM ADV_SALE`` USING com.sap.spark.engines;
+
+``SELECT TS, ADV FROM SERIES ADV_SALE 
+WHERE PERIOD AS OF TIMESTAMP '2015-09-01 00:00:00'`` 
+USING com.sap.spark.engines;
+
+``SELECT SALE as SALETREND 
+FROM SERIES TABLE ADV_SALE 
+WHERE PERIOD AS OF TIMESTAMP '2016-08-01 00:00:00'`` 
+USING com.sap.spark.engines;
+
+``SELECT trend(SALE) as SALETREND 
+FROM SERIES TABLE ADV_SALE 
+WHERE PERIOD AS OF TIMESTAMP '2016-08-01 00:00:00'`` 
+USING com.sap.spark.engines;
+
+``SELECT median(SALE) as SALEMEDIAN, median(ADV) as ADVMEDIAN
+FROM ADV_SALE 
+WHERE PERIOD BETWEEN TIMESTAMP '2015-08-01 00:00:00' 
+AND TIMESTAMP '2016-08-01 00:00:00'`` 
+USING com.sap.spark.engines;
+
+``SELECT trend(SALE) as SALETREND, trend(ADV) AS ADVTREND 
+FROM ADV_SALE 
+WHERE PERIOD BETWEEN TIMESTAMP '2015-01-01 00:00:00' 
+AND TIMESTAMP '2016-01-01 00:00:00'`` 
+USING com.sap.spark.engines; 
+
+``select max(SALE) AS MAXSALE 
+from ADV_SALE`` 
+USING com.sap.spark.engines;
+
+``select mode(SALE) AS MODESALE, mode(ADV) AS MODEADV 
+from ADV_SALE`` 
+USING com.sap.spark.engines;
+
+#######################
+### TABLE FUNCTIONS ###
+#######################
+
+``select * from auto_corr
+(series ADV_SALE, 12,
+descriptor(SALE)) auto_corr_res`` 
+USING com.sap.spark.engines;
+
+``select * from histogram
+(series ADV_SALE, 12,
+descriptor(SALE)) hist`` 
+USING com.sap.spark.engines;
+
+#################
+### GRANULIZE ###
+#################
+
+clear
+rm demanddata.csv
+hdfs dfs -rm /user/cluster_admin/demanddata.csv
+
+wget https://raw.githubusercontent.com/saphanaacademy/Vora/master/Vora_1.3_TimeSeries_DemandData.csv -O demanddata.csv
+
+hdfs dfs -put demanddata.csv /user/cluster_admin
+hdfs dfs -cat /user/cluster_admin/demanddata.csv
+
+DROP SERIES TABLE NATIONAL_GRID_DEMAND USING com.sap.spark.engines;
+DROP PARTITION SCHEME PS1 USING com.sap.spark.engines;
+DROP PARTITION FUNCTION PF1 USING com.sap.spark.engines;
+
+CREATE PARTITION FUNCTION PF1(C TIMESTAMP)
+  AS RANGE BOUNDARIES(TIMESTAMP '2015-04-01 09:00:00.0000', TIMESTAMP '2015-09-01 09:00:00.0000')
+  USING com.sap.spark.engines;
+ 
+CREATE PARTITION SCHEME PS1 USING PF1
+  USING com.sap.spark.engines;
+ 
+CREATE TABLE NATIONAL_GRID_DEMAND (
+    ts TIMESTAMP,
+    ND double,
+    I014_ND double,
+    TSD double,
+    I014_TSD double,
+    England_Wales_Demand double,
+    Embedded_Wind_Generation double,
+    Embedded_Wind_Capacity integer,
+    Embedded_Solar_Generation double,
+    Embedded_Solar_Capacity integer )
+  SERIES (
+    PERIOD FOR SERIES ts START TIMESTAMP '2015-01-01 00:00:00' END TIMESTAMP '2016-01-01 00:00:00'
+    EQUIDISTANT INCREMENT BY 30 MINUTE DEFAULT COMPRESSION use (APCA error 3.0 percent)
+    COMPRESSION ON (Embedded_Wind_Generation) use (SDT error 4.0 percent)
+    COMPRESSION ON (Embedded_Solar_Generation) use (SDT error 5.0 percent) )
+  PARTITION BY PS1( ts )
+  USING com.sap.spark.engines
+  OPTIONS ( files "/user/cluster_admin/demanddata.csv",
+            csvskip "1",
+            csvdelimiter ";",
+            storagebackend "hdfs"
+          );
+ 
+``SELECT ts,
+          Embedded_Wind_Generation,
+          Embedded_Wind_Capacity,
+          Embedded_Solar_Generation,
+          Embedded_Solar_Capacity
+    FROM GRANULIZE( SERIES NATIONAL_GRID_DEMAND,
+                    24 HOUR,
+                    ROUND_HALF_UP,
+                    SUM => DESCRIPTOR( Embedded_Wind_Generation, Embedded_Solar_Generation ),
+                    AVG => DESCRIPTOR( Embedded_Wind_Capacity, Embedded_Solar_Capacity)
+                   )
+    WHERE PERIOD BETWEEN TIMESTAMP '2015-08-01 12:00:00' AND TIMESTAMP '2015-08-03 12:00:00'``
+  USING com.sap.spark.engines;
+ 
+``SELECT ts,
+          ND,
+          I014_ND,
+          TSD,
+          I014_TSD,
+          England_Wales_Demand,
+          Embedded_Wind_Generation,
+          Embedded_Wind_Capacity,
+          Embedded_Solar_Generation,
+          Embedded_Solar_Capacity
+    FROM GRANULIZE( SERIES NATIONAL_GRID_DEMAND,
+                    15 Minute,
+                    ROUND_HALF_UP,
+                    EVEN => DESCRIPTOR( ND, I014_ND ),
+                    EVEN => DESCRIPTOR( TSD, I014_TSD, England_Wales_Demand ),
+                    EVEN => DESCRIPTOR( Embedded_Wind_Generation, Embedded_Solar_Generation ),
+                    SAME => DESCRIPTOR( Embedded_Wind_Capacity, Embedded_Solar_Capacity)
+                   )
+    WHERE PERIOD BETWEEN TIMESTAMP '2015-08-01 08:00:00' 
+    AND TIMESTAMP '2015-08-01 12:00:00'``
+  USING com.sap.spark.engines;

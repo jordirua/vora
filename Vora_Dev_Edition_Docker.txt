@@ -1,0 +1,31 @@
+sudo su -
+
+docker ps
+
+docker exec -it <containerID> bash
+# eg. docker exec -it 7305cf71f2a8 bash
+
+su - vora
+
+echo "Sales,10" >> aggdata.csv
+echo "HR,20" >> aggdata.csv
+echo "Operations,15" >> aggdata.csv
+echo "Finance,18" >> aggdata.csv
+
+hdfs dfs -ls /user/vora
+
+hdfs dfs -put aggdata.csv /user/vora
+
+hdfs dfs -ls /user/vora
+
+hdfs dfs -cat /user/vora/aggdata.csv
+
+%vora show tables
+
+%vora create table aggtable (team string, quantity int)
+using com.sap.spark.vora
+options (files "/user/vora/aggdata.csv")
+
+%vora show tables
+
+%vora select * from aggtable

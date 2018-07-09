@@ -1,0 +1,15 @@
+###############################################
+# SAP HANA VORA 1.3 TOOLS MODELLING SQL VIEWS #
+###############################################
+
+select * from LEAGUEWINNERS order by TROPHYCOUNT desc;
+
+show tables using com.sap.spark.vora
+
+$ZEPPELIN_HOME/bin/zeppelin-daemon.sh restart
+
+%spark.vora show tables using com.sap.spark.vora
+
+%spark.vora register all tables using com.sap.spark.vora ignoring conflicts
+
+%spark.vora select * from LEAGUEWINNERS order by TROPHYCOUNT desc

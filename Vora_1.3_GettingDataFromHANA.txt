@@ -1,0 +1,72 @@
+########################################
+# SAP HANA VORA GETTING DATA FROM HANA #
+########################################
+
+-- run in vora
+-- register facts table 
+
+select * from facts;
+
+-- run in hana as devuser
+drop schema league_schema cascade;
+create schema league_schema;
+create table league_schema.LATEST_FACTS
+(TEAMID integer, LEAGUEYEAR varchar(4));
+
+insert into league_schema.latest_facts values (11,'2016');
+
+select * from league_schema.latest_facts;
+
+-- run in vora
+-- register latest_facts table 
+-- My HXE (http://hxe:8000/sap/hana/xs/ide/catalog/);
+-- mention have changed security group
+
+show tables 
+using com.sap.spark.hana
+options 
+(
+host "**.**.**.**",
+instance "00",
+port "13",
+user "SYSTEM",
+passwd "SHALive1",
+dbschema "LEAGUE_SCHEMA"
+);
+
+register all tables
+using com.sap.spark.hana
+options 
+(
+host "**.**.**.**",
+instance "00",
+port "13",
+user "SYSTEM",
+passwd "SHALive1",
+dbschema "LEAGUE_SCHEMA"
+)
+ignoring conflicts;
+
+show tables; 
+
+-- show counts in each select
+select TEAMID, LEAGUEYEAR from latest_facts
+union
+select TEAMID, LEAGUEYEAR from facts;
+
+%spark.vora register all tables using com.sap.spark.vora ignoring conflicts
+
+%spark.vora register all tables
+using com.sap.spark.hana
+options 
+(
+host "**.**.**.**",
+instance "00",
+port "13",
+user "SYSTEM",
+passwd "SHALive1",
+dbschema "LEAGUE_SCHEMA"
+)
+ignoring conflicts
+
+%spark.vora select * from LEAGUEWINNERS order by TROPHY_COUNT desc

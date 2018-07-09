@@ -1,0 +1,303 @@
+###################################################
+# SAP HANA VORA 1.3 HIERARCHIES : ADJACENCY LISTS #
+###################################################
+
+su - vora
+
+clear
+rm addresses.csv
+rm hierarchy.csv
+hdfs dfs -rm /user/vora/hierarchy.csv
+hdfs dfs -rm /user/vora/addresses.csv
+
+echo "name, pred, succ, ord" >> hierarchy.csv
+echo "Diane,0,1,1" >> hierarchy.csv
+echo "Austin,1,2,1" >> hierarchy.csv
+echo "Joe,1,3,2" >> hierarchy.csv
+echo "Denys,3,4,1" >> hierarchy.csv
+echo "Jamie,3,5,2" >> hierarchy.csv
+echo "Julie,3,6,3" >> hierarchy.csv
+echo "Bob,3,7,4" >> hierarchy.csv
+echo "Phil,3,8,5" >> hierarchy.csv
+ 
+echo "id, address" >> addresses.csv
+echo "1,Philly" >> addresses.csv
+echo "2,Palo Alto" >> addresses.csv
+echo "3,San Francisco" >> addresses.csv
+echo "4,Den Bosch" >> addresses.csv
+echo "5,Vancouver" >> addresses.csv
+echo "6,Seattle" >> addresses.csv
+echo "7,New York" >> addresses.csv
+echo "8,Paris" >> addresses.csv
+
+hdfs dfs -ls /user/vora/
+hdfs dfs -put hierarchy.csv
+hdfs dfs -put addresses.csv
+hdfs dfs -cat /user/vora/hierarchy.csv
+hdfs dfs -cat /user/vora/addresses.csv
+
+### if you need to register your tables ...
+register all tables using com.sap.spark.vora ignoring conflicts;
+register all tables using com.sap.spark.hana ignoring conflicts;
+register all tables using com.sap.spark.engines.disk ignoring conflicts;
+
+drop table HIERARCHY_TABLE cascade;
+create table HIERARCHY_TABLE
+(NAME varchar(200), PRED integer, SUCC integer, ORD integer) 
+using com.sap.spark.vora 
+options (files "/user/vora/hierarchy.csv",
+csvskip "1");
+
+drop table ADDRESSES cascade;
+create table ADDRESSES
+(ID integer, ADDRESS varchar(200)) 
+using com.sap.spark.vora 
+options (files "/user/vora/addresses.csv",
+csvskip "1");
+
+select * from hierarchy_table;
+select * from addresses;
+
+####################################
+# SAP HANA VORA 1.3 HIERARCHY VIEW #
+####################################
+
+drop view HV2 cascade;
+create view HV2 as select SUCC, NAME, NODE from hierarchy 
+(using HIERARCHY_TABLE as v
+join prior u on v.PRED = u.SUCC
+order siblings by ORD asc
+start where PRED = 0
+set NODE)
+as h;
+
+#########################################
+# SAP HANA VORA 1.3 HIERARCHY FUNCTIONS #
+#########################################
+
+select name(node) as nodename from hv;
+.. or ..
+select name, level(node) as level from hierarchy (
+using HIERARCHY_TABLE as v
+join prior u on v.PRED = u.SUCC
+order siblings by ORD asc
+start where PRED = 0
+set NODE)
+as h;
+
+select name, level(node) as level from hv;
+.. or ..
+select name, is_root(node) from hierarchy (
+using HIERARCHY_TABLE as v
+join prior u on v.PRED = u.SUCC
+order siblings by ORD asc
+start where PRED = 0
+set NODE)
+as h;
+
+select name, is_root(node) as isroot 
+from hv;
+
+select name, is_root(node) as isroot 
+from hv 
+where is_root(node) = true;
+
+# hierarchy self-join to get descendant
+select a.name, b.name 
+from hv a, hv b 
+where is_descendant(a.node, b.node);
+
+# hierarchy self-join to get descendant or self
+select a.name, b.name 
+from hv a, hv b 
+where is_descendant_or_self(a.node, b.node);
+
+# hierarchy self-join to get ancestor
+select a.name, b.name 
+from hv a, hv b 
+where is_ancestor(a.node, b.node);
+
+# hierarchy self-join to get ancestor or self
+select a.name, b.name 
+from hv a, hv b 
+where is_ancestor_or_self(a.node, b.node);
+
+# hierarchy self-join to get parent
+select a.name, b.name 
+from hv a, hv b 
+where is_parent(a.node, b.node);
+
+# hierarchy self-join to get children
+select a.name, b.name 
+from hv a, hv b 
+where is_child(a.node, b.node);
+
+# hierarchy self-join to get sibling
+select a.name, b.name 
+from hv a, hv b 
+where is_sibling(a.node, b.node);
+
+# hierarchy self-join to get following
+select a.name, b.name 
+from hv a, hv b 
+where is_following(a.node, b.node);
+
+# hierarchy self-join to get preceding
+select a.name, b.name 
+from hv a, hv b 
+where is_preceding(a.node, b.node);
+
+select * from addresses;
+
+# simple join of hierarchy view with another table
+select a.name, b.address 
+from hv a, addresses b 
+where a.succ = b.id;
+.. or ..
+select name, address 
+from addresses_hv;
+
+select b.succ, b.name, a.address, b.level
+from
+(select succ, name, level(node) as level from hierarchy (
+using HIERARCHY_TABLE as v
+join prior u on v.PRED = u.SUCC
+order siblings by ORD asc
+start where PRED = 0
+set NODE)
+as h) b, addresses a
+where b.succ = a.id;
+
+# get ids of the children of the root.
+select hv2.succ as child 
+from hv hv1, hv hv2 
+where is_child(hv2.node, hv1.node) 
+and is_root(hv1.node);
+.. or ..
+select ahv2.succ as child 
+from addresses_hv ahv1, addresses_hv ahv2 
+where is_child(ahv2.node, ahv1.node) 
+and is_root(ahv1.node);
+
+# get addresses of the children of the root.
+select b.address 
+from 
+(select hv2.succ as child 
+from hv hv1, hv hv2 
+where is_child(hv2.node, hv1.node) 
+and is_root(hv1.node)) a, addresses b 
+where a.child = b.id;
+.. or ..
+select b.address 
+from (select ahv2.id as child 
+from addresses_hv ahv1, addresses_hv ahv2 
+where is_child(ahv2.node, ahv1.node) 
+and is_root(ahv1.node)) a, addresses b 
+where a.child = b.id;
+
+# get names and addresses of 2nd level employees
+select a.name, b.address 
+from hv a, addresses b 
+where a.succ = b.id 
+and level(a.node) = 2;
+.. or ..
+select name, address 
+from addresses_hv 
+where level(node) = 2;
+
+# get names and addresses of 3rd level employees
+select a.name, b.address 
+from hv a, addresses b 
+where a.succ = b.id 
+and level(a.node) = 3;
+.. or ..
+select name, address 
+from addresses_hv 
+where level(node) = 3;
+
+###############################################
+# SAP HANA VORA 1.3 HIERARCHIES : LEVEL-BASED #
+###############################################
+
+su - vora
+
+clear
+rm level-hierarchy.csv
+hdfs dfs -rm /user/vora/level-hierarchy.csv
+
+echo "Continent, Country, City, Team, Formed" >> level-hierarchy.csv
+echo "Americas,USA,New York,NYCFC,2015" >> level-hierarchy.csv
+echo "Americas,USA,New York,Red Bulls,1995" >> level-hierarchy.csv
+echo "Americas,USA,Los Angeles,LA Galaxy,1994" >> level-hierarchy.csv
+echo "Europe,England,Manchester,Manchester United,1878" >> level-hierarchy.csv
+echo "Europe,England,Manchester,Stockport County,1883" >> level-hierarchy.csv
+echo "Europe,England,Liverpool,Everton FC,1878" >> level-hierarchy.csv
+echo "Europe,England,Liverpool,Tranmere Rovers,1885" >> level-hierarchy.csv
+echo "Europe,Germany,Munich,Bayern Munich,1900" >> level-hierarchy.csv
+
+hdfs dfs -put level-hierarchy.csv
+hdfs dfs -cat /user/vora/level-hierarchy.csv
+
+# in Vora Tools
+drop table if exists LEVEL_HIERARCHY_TABLE cascade;
+create table LEVEL_HIERARCHY_TABLE
+(CONTINENT varchar(20), COUNTRY varchar(20), CITY varchar(20), TEAM varchar(20), FORMED integer)
+using com.sap.spark.vora 
+options (files "/user/vora/level-hierarchy.csv",
+csvskip "1");
+
+# Build View in Modeller
+# Show SQL of View in Modeller
+
+# in Zep
+%spark.vora show tables
+
+%spark.vora register table LEVEL_HIERARCHY_TABLE using com.sap.spark.vora ignoring conflicts
+
+%spark.vora register table LHV using com.sap.spark.vora ignoring conflicts
+
+%spark.vora show tables
+
+%spark.vora select * from LEVEL_HIERARCHY_TABLE
+
+%spark.vora select * from LHV
+
+# show following but don't execute
+%spark.vora drop table if exists level_hierarchy_table cascade
+
+# show following but don't execute
+%spark.vora create table level_hierarchy_table2
+(continent varchar(20), country varchar(20), city varchar(20), team varchar(20), formed integer)
+using com.sap.spark.vora 
+options (files "/user/vora/level-hierarchy.csv",
+csvskip "1")
+
+# show following but don't execute
+%spark.vora drop view if exists lhv3 cascade
+
+# show following but don't execute
+## level-based hierarchy view
+%spark.vora create view lhv3 as 
+select continent, country, city, team, formed, node from hierarchy 
+(using level_hierarchy_table with levels (continent, country, city, team)
+match path 
+set node) as lhv
+
+%spark.vora select distinct level(NODE) as NODELEVEL,
+name(NODE) as NODENAME, 
+CONTINENT, COUNTRY, CITY, TEAM, FORMED 
+from LHV
+order by NODELEVEL
+
+%spark.vora select distinct name(b.NODE) as CHILD, 
+name(a.NODE) as PARENT
+from LHV a, LHV b 
+where is_parent(a.NODE, b.NODE)
+
+%spark.vora select distinct name(a.NODE) as SIBLING1, 
+name(b.NODE) as SIBLING2
+from LHV a, LHV b 
+where is_sibling(a.NODE, b.NODE)
+
+%spark.vora select distinct name(NODE) as NODENAME
+from LHV where level(NODE) = 1

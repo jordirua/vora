@@ -1,0 +1,409 @@
+################################################
+## "Base Image" Steps
+################################################
+
+-- as ec2-user
+mkdir /home/ec2-user/media
+chmod 777 /home/ec2-user/media
+cd /home/ec2-user/media
+pwd
+ls
+
+-- Install Files into /home/ec2-user/media
+-- You should get following files from the internet, but our team's Dropbox below should work ! 
+wget https://www.dropbox.com/s/big19drvsxz236p/SLES11-compat-c%2B%2B.tar?dl=0 -O SLES11-compat-c++.tar
+wget https://www.dropbox.com/s/8deklnjwgv5xt3n/spark-1.4.1-bin-hadoop2.6.tgz?dl=0 -O spark-1.4.1-bin-hadoop2.6.tgz
+wget https://www.dropbox.com/s/4s6ug9faofgohmd/zeppelin-0.5.0-incubating-JNA40.tar.gz?dl=0 -O zeppelin-0.5.0-incubating-JNA40.tar.gz
+
+-- see Video 1 for "official" download paths from SAP Service Market Place
+-- Ambari Package for SAP HANA Vora Service (version below may not be latest version)
+wget https://www.dropbox.com/??????? -O ambaripkg-1.1-ms-2.tar.gz
+
+-- Cloudera Package for SAP HANA Vora Service (version below may not be latest version)
+wget https://www.dropbox.com/??????? -O SAPHanaVora-sles11-1.1-ms-2.tar.gz
+
+-- SAP HANA Vora Extensions (version below may not be latest version)
+wget https://www.dropbox.com/??????? -O datasourcedist-1.1.7.tar.gz
+ls
+
+/*
+Things you may need to do ;
+Disable Transparent Huge Pages (THP)9; 
+Install NTP time server; 
+Shut down iptables; 
+Remove php5 packages (will be re-installed later); C
+leanup residue from earlier version of OS; 
+Configure sudo to propagate proxy settings.
+*/
+
+/*
+Create user cluster_admin for cluster manager tool to manage nodes.
+Create a user vora for end users to interact with spark.
+*/
+
+sudo su -
+chmod 700 /etc/sudoers
+vi /etc/sudoers
+
+%sysadmin ALL=(ALL) NOPASSWD:ALL
+
+chmod 440 /etc/sudoers
+groupadd sysadmin
+
+sudo /usr/sbin/useradd -m -g users -G sysadmin cluster_admin
+sudo -iu cluster_admin
+ssh-keygen -t rsa
+
+chmod 700 ~/
+chmod 700 ~/.ssh
+cat ~/.ssh/id_rsa.pub >~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+cat ~/.ssh/id_rsa.pub
+cat ~/.ssh/id_rsa
+-- save keys to local files "keys.txt"
+
+sudo /usr/sbin/useradd -m -g users vora
+sudo passwd vora
+exit
+exit
+-- make sure you are ec2-user going forward
+id
+
+/*
+C++ extensions for Vora
+*/
+
+-- exit and make sure you are ec2-user
+mkdir /home/ec2-user/media/tmp
+tar -xf SLES11-compat-c++.tar -C tmp
+sudo zypper -n install tmp/*rpm
+
+-- make sure you are cluster_admin
+sudo su -
+su - cluster_admin
+cd /etc/zypp/repos.d
+
+################################################
+## "Ambari Install" Steps
+################################################
+
+sudo wget http://public-repo-1.hortonworks.com/ambari/\suse11/1.x/updates/1.7.0/ambari.repo
+sudo zypper ref
+sudo zypper -n install ambari-server
+sudo /usr/sbin/ambari-server setup
+
+sudo /usr/sbin/ambari-server start
+
+-- Install HDFS, Yarn, Zookeeper in Ambari as per videos.
+
+################################################
+## "Cloudera Install" Steps
+################################################
+-- note; on testing, I have seen it is possible to have Cloudera on a single node, but best to install on a 3 node cluster
+
+sudo mkdir /data
+
+sudo zypper addrepo -f http://archive.cloudera.com/cm5/sles/11/x86_64/cm/cloudera-manager.repo
+sudo zypper refresh
+Type 'a'
+sudo zypper install oracle-j2sdk1.7 cloudera-manager-daemons \
+cloudera-manager-server cloudera-manager-agent cloudera-manager-daemons \
+cloudera-manager-server-db-2 avro-tools crunch flume-ng hadoop-hdfs-fuse \
+hadoop-hdfs-nfs3 hadoop-httpfs hadoop-kms hbase-solr hive-hbase hive-webhcat \
+hue-beeswax hue-hbase hue-impala hue-pig hue-plugins hue-rdbms hue-search \
+hue-spark hue-sqoop hue-zookeeper impala impala-shell kite llama mahout oozie \
+pig pig-udf-datafu search sentry solr-mapreduce spark-core spark-master \
+spark-worker spark-history-server spark-python sqoop sqoop2 whirr
+
+sudo /etc/init.d/cloudera-scm-server-db start
+sudo /etc/init.d/cloudera-scm-server start
+
+-- Go to Browser (:7180) and make sure cloudera manager comes up. Allow a few seconds ... 
+-- Do install as per videos. Don't forget to change NTP Thresholds.
+
+################################################
+## "Spark Install" Steps
+################################################
+
+-- should already be this user
+sudo su -
+su - cluster_admin 
+cd /home/ec2-user/media
+sudo mkdir /opt/spark
+sudo tar -xvzf spark-1.4.1-bin-hadoop2.6.tgz -C /opt/spark
+
+sudo vi /etc/bash.bashrc
+-- Type G, I (in VI)
+Paste ;
+## Paths in bash.bashrc FOR AMBARI ##
+export LD_LIBRARY_PATH=/usr/lib/hadoop/lib/native
+export JAVA_HOME=/usr/jdk64/jdk1.7.0_67
+export HADOOP_CONF_DIR=/etc/hadoop/conf
+export SPARK_HOME=/opt/spark/spark-1.4.1-bin-hadoop2.6
+export SPARK_CONF_DIR=$SPARK_HOME/conf
+export PATH=$PATH:$SPARK_HOME/bin
+
+## Paths in bash.bashrc FOR CLOUDERA ##
+export LD_LIBRARY_PATH=/opt/cloudera/parcels/CDH/lib/hadoop/lib/native
+export JAVA_HOME=/usr/java/jdk1.7.0_67-cloudera
+export HADOOP_PARCEL_PATH=/opt/cloudera/parcels/CDH
+export HADOOP_CONF_DIR=/etc/hadoop/conf
+export SPARK_HOME=/opt/spark/spark-1.4.1-bin-hadoop2.6
+export SPARK_CONF_DIR=$SPARK_HOME/conf
+export PATH=$PATH:$SPARK_HOME/bin
+
+## FOR CLOUDERA; also add the following paths to /opt/spark/spark-1.4.1-bin-hadoop2.6/conf/spark-env.sh ##
+cd /opt/spark/spark-1.4.1-bin-hadoop2.6/conf
+sudo cp spark-env.sh.template spark-env.sh
+-- add the following ;
+
+SPARK_DIST_CLASSPATH=$SPARK_HOME/lib/spark-assembly.jar
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-hdfs/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-hdfs/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-mapreduce/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-mapreduce/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-yarn/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hadoop-yarn/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/hive/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/flume-ng/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/parquet/lib/*
+SPARK_DIST_CLASSPATH=$SPARK_DIST_CLASSPATH:$HADOOP_PARCEL_PATH/lib/avro/lib/*
+export SPARK_DIST_CLASSPATH
+
+exit 
+-- exit cluster_admin, and go back in as cluster_admin
+su - cluster_admin
+id
+
+sudo cp $SPARK_HOME/conf/spark-defaults.conf.template $SPARK_HOME/conf/spark-defaults.conf
+
+sudo vi $SPARK_HOME/conf/spark-defaults.conf
+
+## Settings for Ambari ##
+spark.driver.memory 512m
+spark.driver.extraJavaOptions -Dhdp.version=2.2.0.0-2041
+spark.executor.memory 512m
+spark.executor.cores 2
+spark.master yarn-client
+spark.vora.hosts <comma separated list of FQDN of worker nodes>
+spark.vora.namenodeurl <FQDN of master node>:8020
+spark.vora.zkurls <FQDN of master node>:2181
+spark.yarn.am.extraJavaOptions -Dhdp.version=2.2.0.0-2041
+spark.yarn.queue default
+
+## Settings for Cloudera ##
+spark.driver.memory 4g
+spark.driver.extraJavaOptions -Dhdp.version=2.2.0.0-2041
+spark.executor.memory 4g
+spark.executor.cores 2
+spark.master yarn-client
+spark.vora.hosts <comma separated list of DNS name of worker nodes>
+spark.vora.namenodeurl <DNS name of master node>:8020
+spark.vora.zkurls <DNS name of master node>:2181
+spark.yarn.am.extraJavaOptions -Dhdp.version=2.2.0.0-2041
+spark.yarn.queue default
+
+/*
+Setup HDFS for User Vora (also on master node)
+*/
+
+sudo -iu hdfs
+hdfs dfs -mkdir /user/vora
+hdfs dfs -chown vora /user/vora
+exit
+-- validate with ;
+sudo -iu vora
+echo "1,2,Hello" > test.csv
+hdfs dfs -put test.csv
+hdfs dfs -cat /user/vora/test.csv
+exit
+-- http://??????:8088/cluster/apps
+
+/*
+testing that spark is running on yarn with the vora user
+*/
+
+sudo -iu vora
+spark-shell
+exit
+
+spark-submit \
+--class org.apache.spark.examples.SparkPi \
+--num-executors 2 \
+$SPARK_HOME/lib/spark-examples*.jar \
+10 2>/dev/null 
+
+-- should see "Pi is roughly 3.140292"
+
+################################################
+## "Vora Install" Steps
+################################################
+
+exit
+su - ec2-user
+id
+cd /home/ec2-user/media
+ls
+
+## for ambari ##
+sudo tar -xvzf ambaripkg-1.1-ms-2.tar.gz -C /var/lib/ambari-server/resources/stacks/HDP/2.2/services
+sudo /usr/sbin/ambari-server restart
+-- make sure all services started
+-- add vora service in ambari as per videos
+
+## for cloudera ##
+sudo tar --strip-components=1 -xvzf SAPHanaVora-sles11-1.1-ms-2.tar.gz -C /opt/cloudera/
+sudo service cloudera-scm-server restart
+-- make sure all services started
+-- add vora service in cloudera as per videos
+
+-- now to download Spark Vora Data Source "the extension"
+sudo -iu vora
+mkdir /home/vora/vora
+cd /home/ec2-user/media
+ls
+tar -xvzf datasourcedist-1.1.7.tar.gz -C /home/vora/vora
+-- sql extensions that SAP builds ontop on spark, ie. hierarchies
+
+-- test vora install
+cd /home/vora/vora/bin
+sh start-spark-shell.sh
+
+import org.apache.spark.sql.SapSQLContext
+
+val vc = new SapSQLContext(sc)
+
+val testsql = """
+CREATE TEMPORARY TABLE testtable (a1 int, a2 int, a3 string)
+USING com.sap.spark.vora
+OPTIONS (
+tableName "testtable",
+paths "/user/vora/test.csv"
+)"""
+
+vc.sql(testsql).show
+
+vc.sql("show tables").show
+
+vc.sql("SELECT * FROM testtable").show
+
+exit
+exit
+clear
+
+################################################
+## "Zeppelin Install" Steps
+################################################
+
+-- In Ambari, select "MapReduce2", "Configs", select "Advanced mapred-site"
+-- In "mapreduce.application.classpath", remove ":/usr/hdp/hdp. version / hadoop / lib / hadoop − lzo − 0. 6. 0. {hdp.version}.jar"
+-- restart mr and yarn
+
+sudo su vora
+cd /home/ec2-user/media
+ls
+tar -xvzf zeppelin-0.5.0-incubating-JNA40.tar.gz -C /home/vora/
+cd /home/vora/
+ls
+exit
+exit (to ec2-user)
+sudo vi /etc/bash.bashrc
+
+export ZEPPELIN_HOME=/home/vora/zeppelin-0.5.0-incubating
+export HDP_VERSION="$(hdp-select status hadoop-client | sed 's/hadoop-client - \(.*\)/\1/')"
+
+-- need to login again to putty to make following work
+exit (all)
+-- restart putty
+
+/*
+Update Config Files
+*/
+
+-- after restarting putty
+sudo su -
+su - vora
+cp $ZEPPELIN_HOME/conf/zeppelin-site.xml.template $ZEPPELIN_HOME/conf/zeppelin-site.xml
+chmod 0755 $ZEPPELIN_HOME/conf/zeppelin-site.xml
+
+sed -i "s/FlinkInterpreter<\/value>/FlinkInterpreter,\
+org.apache.spark.sql.SapSqlInterpreter<\/value>/" \
+$ZEPPELIN_HOME/conf/zeppelin-site.xml
+
+cp $ZEPPELIN_HOME/conf/zeppelin-env.sh.template $ZEPPELIN_HOME/conf/zeppelin-env.sh
+
+chmod 0755 $ZEPPELIN_HOME/conf/zeppelin-env.sh
+
+vi $ZEPPELIN_HOME/conf/zeppelin-env.sh
+
+-- insert the following at the end of the file
+export MASTER=yarn-client
+export ZEPPELIN_PORT=9099
+export ADD_JARS="$ZEPPELIN_HOME/interpreter/spark/spark-sap-datasources-assembly.jar"
+export ZEPPELIN_JAVA_OPTS="-Dhdp.version=$HDP_VERSION"
+:wq!
+
+/*
+Link Spark Velocity Data Sources To Zeppelin
+*/
+
+ln -sf /home/vora/vora/lib/spark-sap-datasources-0.0.8-SNAPSHOT-assembly.jar $ZEPPELIN_HOME/interpreter/spark/spark-sap-datasources-assembly.jar
+
+$ZEPPELIN_HOME/bin/zeppelin-daemon.sh start
+
+################################################
+## "Test Zeppelin Install" Steps
+################################################
+
+-- Open Port 9099 (http://?????:9099)
+-- also, open 9099+1 port, which is 9100
+-- check interpreter "%velo" exists
+-- create a note, add following 2 scripts ;
+
+-- from local file
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora CREATE TEMPORARY TABLE testtablelocal (
+  a1 int, 
+  a2 int, 
+  a3 string
+  ) USING com.sap.spark.vora
+OPTIONS (
+  tableName "testtablelocal",
+  paths "/home/vora/test.csv",
+  zkurls "?????:2181",
+  csvdelimiter ","
+)
+
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora SHOW TABLES
+
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora SELECT * FROM testtablelocal
+
+--
+-- show sudo vi $SPARK_HOME/conf/spark-defaults.conf to see hosts
+--
+
+-- hdfs file
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora CREATE TEMPORARY TABLE testtablehdfs (
+  a1 int, 
+  a2 int, 
+  a3 string
+  ) USING com.sap.spark.vora
+OPTIONS (
+  tableName "testtablehdfs",
+  paths "/user/vora/test.csv",
+  hosts "????",
+  zkurls "????",
+  nameNodeUrl "????",
+  csvdelimiter ","
+)
+
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora SHOW TABLES
+
+-- note that in earlier versions of the video %vora below might have been %velo
+%vora SELECT * FROM testtablehdfs

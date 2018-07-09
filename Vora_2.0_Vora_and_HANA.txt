@@ -1,0 +1,29 @@
+-- run in hana as shauser
+http://**.**.**.**:8000/sap/hana/xs/ide
+shauser/********
+select * from league_schema.latest_facts;
+
+show tables
+using com.sap.spark.hana
+options 
+(
+host "**.**.**.**",
+instance "00",
+port "15",
+user "shauser",
+passwd "*******",
+dbschema "LEAGUE_SCHEMA"
+);
+
+register all tables ...
+()
+ignoring conflicts;
+
+show tables; 
+
+-- show counts in each select
+select TEAMID, LEAGUEYEAR from latest_facts
+union
+select TEAMID, LEAGUEYEAR from facts;
+
+select * from LEAGUEWINNERS order by TROPHY_COUNT desc;

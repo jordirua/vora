@@ -1,0 +1,186 @@
+############################################
+# SAP HANA VORA 1.3 LOADING CSVS FROM HDFS #
+############################################
+
+http://vora:19000/
+http://vora:9225/
+http://vora:9099/
+
+register all tables using com.sap.spark.vora
+
+hdfs dfs -rm /user/cluster_admin/facts.csv
+rm facts.csv
+hdfs dfs -rm /user/cluster_admin/dims.csv
+rm dims.csv
+
+clear
+echo "5,2015,2010s" >> facts.csv
+echo "13,2014,2010s" >> facts.csv
+echo "14,2013,2010s" >> facts.csv
+echo "13,2012,2010s" >> facts.csv
+echo "14,2011,2010s" >> facts.csv
+echo "5,2010,2010s" >> facts.csv
+echo "14,2009,2000s" >> facts.csv
+echo "14,2008,2000s" >> facts.csv
+echo "14,2007,2000s" >> facts.csv
+echo "5,2006,2000s" >> facts.csv
+echo "5,2005,2000s" >> facts.csv
+echo "1,2004,2000s" >> facts.csv
+echo "14,2003,2000s" >> facts.csv
+echo "1,2002,2000s" >> facts.csv
+echo "14,2001,2000s" >> facts.csv
+echo "14,2000,2000s" >> facts.csv
+echo "14,1999,1990s" >> facts.csv
+echo "1,1998,1990s" >> facts.csv
+echo "14,1997,1990s" >> facts.csv
+echo "14,1996,1990s" >> facts.csv
+echo "3,1995,1990s" >> facts.csv
+echo "14,1994,1990s" >> facts.csv
+echo "14,1993,1990s" >> facts.csv
+echo "10,1992,1990s" >> facts.csv
+echo "1,1991,1990s" >> facts.csv
+echo "12,1990,1990s" >> facts.csv
+echo "1,1989,1980s" >> facts.csv
+echo "12,1988,1980s" >> facts.csv
+echo "7,1987,1980s" >> facts.csv
+echo "12,1986,1980s" >> facts.csv
+echo "7,1985,1980s" >> facts.csv
+echo "12,1984,1980s" >> facts.csv
+echo "12,1983,1980s" >> facts.csv
+echo "12,1982,1980s" >> facts.csv
+echo "2,1981,1980s" >> facts.csv
+echo "12,1980,1980s" >> facts.csv
+echo "12,1979,1970s" >> facts.csv
+echo "16,1978,1970s" >> facts.csv
+echo "12,1977,1970s" >> facts.csv
+echo "12,1976,1970s" >> facts.csv
+echo "6,1975,1970s" >> facts.csv
+echo "10,1974,1970s" >> facts.csv
+echo "12,1973,1970s" >> facts.csv
+echo "6,1972,1970s" >> facts.csv
+echo "1,1971,1970s" >> facts.csv
+echo "7,1970,1970s" >> facts.csv
+echo "10,1969,1960s" >> facts.csv
+echo "13,1968,1960s" >> facts.csv
+echo "14,1967,1960s" >> facts.csv
+echo "12,1966,1960s" >> facts.csv
+echo "14,1965,1960s" >> facts.csv
+echo "12,1964,1960s" >> facts.csv
+echo "7,1963,1960s" >> facts.csv
+echo "9,1962,1960s" >> facts.csv
+echo "22,1961,1960s" >> facts.csv
+echo "4,1960,1960s" >> facts.csv
+echo "24,1959,1950s" >> facts.csv
+echo "24,1958,1950s" >> facts.csv
+echo "14,1957,1950s" >> facts.csv
+echo "14,1956,1950s" >> facts.csv
+echo "5,1955,1950s" >> facts.csv
+echo "24,1954,1950s" >> facts.csv
+echo "1,1953,1950s" >> facts.csv
+echo "14,1952,1950s" >> facts.csv
+echo "22,1951,1950s" >> facts.csv
+echo "17,1950,1950s" >> facts.csv
+echo "17,1949,1940s" >> facts.csv
+echo "1,1948,1940s" >> facts.csv
+echo "12,1947,1940s" >> facts.csv
+echo "7,1939,1930s" >> facts.csv
+echo "1,1938,1930s" >> facts.csv
+echo "13,1937,1930s" >> facts.csv
+echo "21,1936,1930s" >> facts.csv
+echo "1,1935,1930s" >> facts.csv
+echo "1,1934,1930s" >> facts.csv
+echo "1,1933,1930s" >> facts.csv
+echo "7,1932,1930s" >> facts.csv
+echo "1,1931,1930s" >> facts.csv
+echo "20,1930,1930s" >> facts.csv
+echo "20,1929,1920s" >> facts.csv
+echo "7,1928,1920s" >> facts.csv
+echo "15,1927,1920s" >> facts.csv
+echo "8,1926,1920s" >> facts.csv
+echo "8,1925,1920s" >> facts.csv
+echo "8,1924,1920s" >> facts.csv
+echo "12,1923,1920s" >> facts.csv
+echo "12,1922,1920s" >> facts.csv
+echo "4,1921,1920s" >> facts.csv
+echo "23,1920,1920s" >> facts.csv
+echo "7,1915,1910s" >> facts.csv
+echo "3,1914,1910s" >> facts.csv
+echo "21,1913,1910s" >> facts.csv
+echo "3,1912,1910s" >> facts.csv
+echo "14,1911,1910s" >> facts.csv
+echo "2,1910,1910s" >> facts.csv
+echo "15,1909,1900s" >> facts.csv
+echo "14,1908,1900s" >> facts.csv
+echo "15,1907,1900s" >> facts.csv
+echo "12,1906,1900s" >> facts.csv
+echo "15,1905,1900s" >> facts.csv
+echo "20,1904,1900s" >> facts.csv
+echo "20,1903,1900s" >> facts.csv
+echo "21,1902,1900s" >> facts.csv
+echo "12,1901,1900s" >> facts.csv
+echo "2,1900,1900s" >> facts.csv
+echo "2,1899,1890s" >> facts.csv
+echo "19,1898,1890s" >> facts.csv
+echo "2,1897,1890s" >> facts.csv
+echo "2,1896,1890s" >> facts.csv
+echo "21,1895,1890s" >> facts.csv
+echo "2,1894,1890s" >> facts.csv
+echo "21,1893,1890s" >> facts.csv
+echo "21,1892,1890s" >> facts.csv
+echo "7,1891,1890s" >> facts.csv
+echo "18,1890,1890s" >> facts.csv
+echo "18,1889,1880s" >> facts.csv
+
+cat facts.csv
+
+clear
+echo "1,Arsenal FC" >> dims.csv
+echo "2,Aston Villa" >> dims.csv
+echo "3,Blackburn Rovers" >> dims.csv
+echo "4,Burnley FC" >> dims.csv
+echo "5,Chelsea FC" >> dims.csv
+echo "6,Derby County" >> dims.csv
+echo "7,Everton FC" >> dims.csv
+echo "8,Huddersfield Town" >> dims.csv
+echo "9,Ipswich Town" >> dims.csv
+echo "10,Leeds United" >> dims.csv
+echo "11,Leicester City" >> dims.csv
+echo "12,Liverpool FC" >> dims.csv
+echo "13,Manchester City" >> dims.csv
+echo "14,Manchester United" >> dims.csv
+echo "15,Newcastle United" >> dims.csv
+echo "16,Nottingham Forest" >> dims.csv
+echo "17,Portsmouth FC" >> dims.csv
+echo "18,Preston North End" >> dims.csv
+echo "19,Sheffield United" >> dims.csv
+echo "20,Sheffield Wednesday" >> dims.csv
+echo "21,Sunderland AFC" >> dims.csv
+echo "22,Tottenham Hotspur" >> dims.csv
+echo "23,West Bromwich Albion" >> dims.csv
+echo "24,Wolverhampton Wanderers" >> dims.csv
+
+cat dims.csv
+
+hdfs dfs -ls /user/cluster_admin/
+hdfs dfs -put facts.csv
+hdfs dfs -put dims.csv
+hdfs dfs -ls /user/cluster_admin/
+hdfs dfs -cat /user/cluster_admin/facts.csv
+hdfs dfs -cat /user/cluster_admin/dims.csv
+
+-- In SQL Editor in Vora Modeller
+drop table if exists FACTS;
+create table FACTS (TEAMID int, LEAGUEYEAR string, YEARDECADE string)
+using com.sap.spark.vora
+options (tablename "facts",
+files "/user/cluster_admin/facts.csv");
+
+select * from facts order by leagueyear;
+
+drop table if exists DIMS;
+create table DIMS (TEAMID int, TEAM string)
+using com.sap.spark.vora
+options (tablename "dims",
+files "/user/cluster_admin/dims.csv");
+
+select * from dims;

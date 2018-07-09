@@ -1,0 +1,163 @@
+###########################
+# SAP HANA VORA 1.3 GRAPH #
+###########################
+
+rm soccer.jsg
+hdfs dfs -rm /user/cluster_admin/soccer.jsg
+
+echo '# {"NAME":"SOCCER","property_indexes":["NAME"]}' >> soccer.jsg
+echo '["PLAYER",1,[["NAME","Paul Pogba"]],[["HAS_PLAYED_FOR",4,8]]]' >> soccer.jsg
+echo '["PLAYER",2,[["NAME","Zlatan Ibrahimovic"]],[["HAS_PLAYED_FOR",4,7]]]' >> soccer.jsg
+echo '["PLAYER",3,[["NAME","Christiano Ronaldo"]],[["HAS_PLAYED_FOR",4,5,6]]]' >> soccer.jsg
+echo '["TEAM",4,[["NAME","Manchester United"],["CITY","Manchester"],["COUNTRY","UK"]],[["BEEN_MANAGED_BY",9]]]' >> soccer.jsg
+echo '["TEAM",5,[["NAME","Real Madrid"],["CITY","Madrid"],["COUNTRY","Spain"]],[["BEEN_MANAGED_BY",9]]]' >> soccer.jsg
+echo '["TEAM",6,[["NAME","Sporting Lisbon"],["CITY","Lisbon"],["COUNTRY","Portugal"]],[["BEEN_MANAGED_BY",12]]]' >> soccer.jsg
+echo '["TEAM",7,[["NAME","Paris St Germain"],["CITY","Paris"],["COUNTRY","France"]],[["BEEN_MANAGED_BY",10]]]' >> soccer.jsg
+echo '["TEAM",8,[["NAME","Juventus"],["CITY","Torino"],["COUNTRY","Italy"]],[["BEEN_MANAGED_BY",11]]]' >> soccer.jsg
+echo '["MANAGER",9,[["NAME","Jose Mourinho"]],[]]' >> soccer.jsg
+echo '["MANAGER",10,[["NAME","Lauren Blanc"]],[]]' >> soccer.jsg
+echo '["MANAGER",11,[["NAME","Massimiliano Allegri"]],[]]' >> soccer.jsg
+echo '["MANAGER",12,[["NAME","László Bölöni"]],[]]' >> soccer.jsg
+
+cat soccer.jsg
+
+hdfs dfs -put soccer.jsg /user/cluster_admin
+hdfs dfs -cat /user/cluster_admin/soccer.jsg
+
+drop graph soccer using com.sap.spark.engines;
+
+create graph soccer
+using com.sap.spark.engines
+options (files '/user/cluster_admin/soccer.jsg');
+
+#############
+# GRAPH SQL #
+#############
+
+``select name 
+from player
+using graph soccer``
+using com.sap.spark.engines;
+
+``select name
+from team
+using graph soccer``
+using com.sap.spark.engines;
+
+``select name
+from manager
+using graph soccer``
+using com.sap.spark.engines;
+
+``select name 
+from any 
+using graph soccer
+where name is not NULL``
+using com.sap.spark.engines;
+
+``select name, has_played_for.name 
+from player
+using graph soccer``
+using com.sap.spark.engines;
+
+``select a.name as player, 
+a.has_played_for.been_managed_by.name as manager
+from player a
+using graph soccer``
+using com.sap.spark.engines;
+
+``select nodeid, nodetype, name 
+from any 
+using graph soccer``
+using com.sap.spark.engines;
+
+``select a.name 
+from player a, team m 
+using graph soccer 
+where m.name='Manchester United' 
+and m in a.has_played_for``
+using com.sap.spark.engines;
+
+``select a.name, b.name 
+from player a, player b, team m 
+using graph soccer 
+where (m in a.has_played_for) 
+and (m in b.has_played_for)
+and a.name != b.name``
+using com.sap.spark.engines;
+
+``select a.name, b.name 
+from player a, player b, team m 
+using graph soccer 
+where m in a.has_played_for 
+and m in b.has_played_for
+and a<b``
+using com.sap.spark.engines;
+
+###################
+# GRAPH FUNCTIONS #
+###################
+
+``select count(name) as number_of_teams
+from team
+using graph soccer``
+using com.sap.spark.engines;
+
+``select m.name, 
+degree(in m) as di, 
+degree(out m) as doo, 
+degree(inout m) as dio 
+from team m 
+using graph soccer``
+using com.sap.spark.engines;
+
+``select m.name
+from team m 
+using graph soccer 
+where degree(in m) > 1``
+using com.sap.spark.engines;
+
+``select a.name, b.name, 
+distance(directed a,b) as d 
+from player a, manager b 
+using graph soccer``
+using com.sap.spark.engines;
+
+``select b.name, 
+distance(undirected a,b) as d 
+from player a, player b 
+using graph soccer 
+where a.name='Christiano Ronaldo'``
+using com.sap.spark.engines;
+
+``select a.name, b.name 
+from player a, manager b 
+using graph soccer 
+where distance(a,b)=2``
+using com.sap.spark.engines;
+
+``select a.name, 
+connected_component(strong a) as scc, 
+connected_component(weak a) as wcc 
+from player a 
+using graph soccer``
+using com.sap.spark.engines;
+
+echo '["TEAM",13,[["NAME","Tottenham Hotspur"],["CITY","London"],["COUNTRY","England"]],[["BEEN_MANAGED_BY",14]]]' >> soccer.jsg
+echo '["MANAGER",14,[["NAME","Harry Redknapp"]],[]]' >> soccer.jsg
+hdfs dfs -rm r /user/cluster_admin/soccer.jsg
+hdfs dfs -put soccer.jsg /user/cluster_admin
+hdfs dfs -cat /user/cluster_admin/soccer.jsg
+
+drop graph soccer using com.sap.spark.engines;
+
+create graph soccer
+using com.sap.spark.engines
+options (files '/user/cluster_admin/soccer.jsg');
+
+``select a.name, 
+connected_component(strong a) as scc, 
+connected_component(weak a) as wcc 
+from any a 
+using graph soccer``
+using com.sap.spark.engines;

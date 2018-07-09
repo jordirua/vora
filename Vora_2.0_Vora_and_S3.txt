@@ -1,0 +1,27 @@
+drop table if exists FACTS;
+create table FACTS (TEAMID int, LEAGUEYEAR string, YEARDECADE string)
+using com.sap.spark.engines.relational
+options 
+(
+files "/shabobbucket/footy_facts.csv",
+storagebackend "s3",
+s3accesskeyid "",
+s3secretaccesskey "",
+s3endpoint "https://s3.us-east-2.amazonaws.com"
+);
+
+select * from facts order by leagueyear;
+
+drop table if exists DIMS;
+create table DIMS (TEAMID int, TEAM string)
+using com.sap.spark.engines.relational
+options 
+(
+files "/shabobbucket/footy_dims.csv",
+storagebackend "s3",
+s3accesskeyid "",
+s3secretaccesskey "",
+s3endpoint "https://s3.us-east-2.amazonaws.com"
+);
+
+select * from dims order by team;

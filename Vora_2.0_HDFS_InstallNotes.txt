@@ -1,0 +1,132 @@
+##########################################
+# HDFS / SPARK INSTALLATION FOR VORA 2.0 #
+##########################################
+
+# AWS
+launch suse-sles-11-sp4-sapcal-v20160415-hvm-ssd-x86_64 AMI in AWS 
+Make HD 40 GB minimum
+
+# when logged in
+sudo su -
+zypper ref -s
+zypper update -t patch
+zypper update -t patch
+/etc/init.d/ntp restart
+
+# prepare dlog (see install PDF for other services (not needed on my AWS image))
+zypper install libaio
+cat /proc/sys/fs/file-max
+echo "fs.file-max=983040" | tee -a /etc/sysctl.conf
+sysctl -p
+cat /etc/security/limits.conf
+echo "*                -       nofile          1000000" | tee -a /etc/security/limits.conf
+cat /etc/security/limits.conf
+locale
+export LC_ALL=en_US.UTF-8
+locale
+exit
+sudo su -
+
+chmod 700 /etc/sudoers
+echo "%sysadmin ALL=(ALL) NOPASSWD:ALL" | tee -a /etc/sudoers
+chmod 440 /etc/sudoers
+groupadd sysadmin
+/usr/sbin/useradd -m -g users -G sysadmin cluster_admin
+su - cluster_admin
+
+ssh-keygen -t rsa
+PRESS RETURN
+PRESS RETURN
+
+chmod 700 ~/
+chmod 700 ~/.ssh
+cat ~/.ssh/id_rsa.pub >~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+cat ~/.ssh/id_rsa.pub
+cat ~/.ssh/id_rsa
+
+# +++++++++++++ #
+#   AMBARI      #
+# +++++++++++++ #
+
+cd /etc/zypp/repos.d
+sudo wget http://public-repo-1.hortonworks.com/ambari/suse11/2.x/updates/2.5.2.0/ambari.repo -O /etc/zypp/repos.d/ambari.repo
+sudo zypper ref
+sudo zypper install ambari-server
+
+sudo /usr/sbin/ambari-server setup
+ACCEPT DEFAULTS
+sudo /usr/sbin/ambari-server restart
+
+-- Install HDP 2.6
+-- Create Cluster; When selecting key, use the bottom Private one 
+-- use "cluster_admin" user
+-- Install HDFS, Yarn, Spark, Ambari Metrics, Hive (needed because of Spark), Zookeeper
+-- assign EVERYTHING on all slaves and clients
+
++++++++++++++++
++ HIVE CONFIG +
++++++++++++++++
+
+# when prompted for hive login and password for hive repo, need to do following steps
+# should be root
+exit 
+zypper install -y postgresql-jdbc
+ls /usr/share/java/postgresql-jdbc.jar
+chmod 644 /usr/share/java/postgresql-jdbc.jar
+ambari-server setup --jdbc-db=postgres --jdbc-driver=/usr/share/java/postgresql-jdbc.jar
+
+su - postgres
+psql
+create database hive;
+create user hive with password 'hive';
+grant all privileges on database hive to hive;
+\q
+# should be root now
+exit 
+cp /var/lib/pgsql/data/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf_backup
+vi /var/lib/pgsql/data/pg_hba.conf
+-- add hive to the list of users at the bottom (so hive,mapred,ambari)
+:wq!
+sudo /etc/init.d/postgresql restart
+
++++++++++++++++
++  TEST HDFS  +
++++++++++++++++
+
+exit
+su - hdfs
+hdfs dfs -mkdir /user/cluster_admin
+hdfs dfs -chown cluster_admin /user/cluster_admin
+echo "1,2,Hello" > test.csv
+hdfs dfs -ls /user/cluster_admin
+hdfs dfs -put test.csv /user/cluster_admin
+hdfs dfs -ls /user/cluster_admin
+hdfs dfs -cat /user/cluster_admin/test.csv
+exit
+
+++++++++++++++++
++ SETUP SPARK  +
+++++++++++++++++
+
+sudo su -
+sudo vi /etc/bash.bashrc
+-- Type G, I (in VI)
+Paste ;
+## Paths in bash.bashrc FOR AMBARI ##
+export JAVA_HOME=/usr/jdk64/jdk1.8.0_112/
+export HADOOP_CONF_DIR=/etc/hadoop/conf
+export SPARK_HOME=/usr/hdp/2.6.2.0-205/spark
+export SPARK_CONF_DIR=$SPARK_HOME/conf
+export PATH=$PATH:$SPARK_HOME/bin
+exit
+sudo su -
+su - cluster_admin
+
+++++++++++++++++
++  TEST SPARK 
+++++++++++++++++
+
+spark-submit --class org.apache.spark.examples.SparkPi --master yarn-client --num-executors 2 --driver-memory 512m --executor-memory 512m --executor-cores 2 --queue default $SPARK_HOME/lib/spark-examples*.jar 10 2>/dev/null
+
+# should see "Pi is roughly 3.140292"

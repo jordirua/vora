@@ -1,0 +1,24 @@
+==============
+== IN SHELL ==
+==============
+
+/*
+rm /home/vora/extravoradata.csv
+rm /home/vora/evenmorevoradata.csv
+hdfs dfs -rm /user/vora/extravoradata.csv
+hdfs dfs -rm /user/vora/evenmorevoradata.csv
+*/
+echo "2,Beers" > /home/vora/extravoradata.csv
+hdfs dfs -put /home/vora/extravoradata.csv
+hdfs dfs -cat /user/vora/extravoradata.csv
+echo "3,Cakes" > /home/vora/evenmorevoradata.csv
+hdfs dfs -put /home/vora/evenmorevoradata.csv
+hdfs dfs -cat /user/vora/evenmorevoradata.csv
+
+============== 
+== IN SCALA ==
+============== 
+
+sqlContext.sql( s"""APPEND TABLE VORA_DATA OPTIONS (paths "/user/vora/extravoradata.csv,/user/vora/evenmorevoradata.csv", eagerLoad "true")""".stripMargin )
+
+sqlContext.sql("select * from VORA_DATA").show

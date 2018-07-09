@@ -1,0 +1,198 @@
+###############################
+# SAP HANA VORA 1.3 DOC STORE #
+###############################
+
+# In-memory distributed computing engine for analyzing schema-less JavaScript Object Notation (JSON) format files
+# Introduces NoSQL features like storing JSON documents. 
+# Supports schema-less tables, allowing you to flexibly add or remove fields from any documents and helps scale horizontally.
+
+http://jsonlint.com/
+
+clear
+rm legend_dims.json
+rm legend_facts.json
+hdfs dfs -rm /user/cluster_admin/legend_dims.json
+hdfs dfs -rm /user/cluster_admin/legend_facts.json
+
+echo '{"playerid": 1, "name": "George Best", "placeofbirth": {"city": "Belfast", "country": "Northern Ireland"}, "played_for": [{"team": "Manchester United"}, {"team": "Jewish Guild"}, {"team": "Dunstable Town"}, {"team": "Stockport County"}, {"team": "Cork Celtic"}, {"team": "Los Angeles Aztecs"}, {"team": "Fulham"}, {"team": "Los Angeles Aztecs"}, {"team": "Fort Lauderdale Strikers"}, {"team": "Hibernian"}, {"team": "San Jose Earthquakes"}, {"team": "San Jose Earthquakes (indoor)"}, {"team": "Sea Bee"}, {"team": "Hong Kong Rangers"}, {"team": "Bournemouth"}, {"team": "Brisbane Lions"}, {"team": "Osborne Park Galeb"}, {"team": "Nuneaton Borough"}, {"team": "Tobermore United"}], "dateofbirth": "1946-05-22T00:00:00.000Z"} 
+{"playerid": 2, "name": "Eric Cantona", "placeofbirth": {"city": "Marseille", "country": "France"}, "played_for": [{"team": "Auxerre"}, {"team": "Martigues"}, {"team": "Marseille"}, {"team": "Bordeaux"}, {"team": "Montpellier"}, {"team": "Nîmes"}, {"team": "Leeds United"}, {"team": "Manchester United"}], "dateofbirth": "1966-05-24T00:00:00.000Z"}'>> legend_dims.json
+
+cat legend_dims.json
+
+echo '{"playerid": 1, "year": 1960, "team": "Manchester United", "appearances": 361, "goalsscored": 137}
+{"playerid": 1, "year": 1963, "team": "Jewish Guild", "appearances": 5, "goalsscored": 1}
+{"playerid": 1, "year": 1974, "team": "Dunstable Town", "appearances": 0, "goalsscored": 0}
+{"playerid": 1, "year": 1974, "team": "Stockport County", "appearances": 3, "goalsscored": 2}
+{"playerid": 1, "year": 1975, "team": "Cork Celtic", "appearances": 3, "goalsscored": 0}
+{"playerid": 1, "year": 1975, "team": "Los Angeles Aztecs", "appearances": 23, "goalsscored": 15}
+{"playerid": 1, "year": 1976, "team": "Fulham", "appearances": 42, "goalsscored": 8}
+{"playerid": 1, "year": 1976, "team": "Los Angeles Aztecs", "appearances": 32, "goalsscored": 12}
+{"playerid": 1, "year": 1977, "team": "Fort Lauderdale Strikers", "appearances": 28, "goalsscored": 6}
+{"playerid": 1, "year": 1978, "team": "Hibernian", "appearances": 17, "goalsscored": 3}
+{"playerid": 1, "year": 1979, "team": "San Jose Earthquakes", "appearances": 56, "goalsscored": 21}
+{"playerid": 1, "year": 1980, "team": "San Jose Earthquakes (indoor)", "appearances": 21, "goalsscored": 33}
+{"playerid": 1, "year": 1982, "team": "Sea Bee", "appearances": 2, "goalsscored": 0}
+{"playerid": 1, "year": 1982, "team": "Hong Kong Rangers", "appearances": 1, "goalsscored": 0}
+{"playerid": 1, "year": 1983, "team": "Bournemouth", "appearances": 5, "goalsscored": 0}
+{"playerid": 1, "year": 1983, "team": "Brisbane Lions", "appearances": 4, "goalsscored": 0}
+{"playerid": 1, "year": 1983, "team": "Osborne Park Galeb", "appearances": 1, "goalsscored": 1}
+{"playerid": 1, "year": 1983, "team": "Nuneaton Borough", "appearances": 3, "goalsscored": 1}
+{"playerid": 1, "year": 1984, "team": "Tobermore United", "appearances": 1, "goalsscored": 0}
+{"playerid": 2, "year": 1983, "team": "Auxerre", "appearances": 82, "goalsscored": 23}
+{"playerid": 2, "year": 1985, "team": "Martigues", "appearances": 15, "goalsscored": 4}
+{"playerid": 2, "year": 1988, "team": "Marseille", "appearances": 40, "goalsscored": 13}
+{"playerid": 2, "year": 1989, "team": "Bordeaux", "appearances": 11, "goalsscored": 6}
+{"playerid": 2, "year": 1989, "team": "Montpellier", "appearances": 33, "goalsscored": 10}
+{"playerid": 2, "year": 1991, "team": "Nîmes", "appearances": 17, "goalsscored": 2}
+{"playerid": 2, "year": 1992, "team": "Leeds United", "appearances": 28, "goalsscored": 9}
+{"playerid": 2, "year": 1992, "team": "Manchester United", "appearances": 143, "goalsscored": 64}'>> legend_facts.json
+
+cat legend_facts.json
+
+hdfs dfs -put legend_dims.json
+hdfs dfs -put legend_facts.json
+clear
+hdfs dfs -cat /user/cluster_admin/legend_dims.json
+hdfs dfs -cat /user/cluster_admin/legend_facts.json
+
+# create collections
+#####################
+
+drop collection legend_dims
+using com.sap.spark.engines;
+
+drop collection legend_facts
+using com.sap.spark.engines;
+
+create collection legend_dims
+using com.sap.spark.engines
+options 
+(
+files "/user/cluster_admin/legend_dims.json"
+);
+
+create collection legend_facts
+using com.sap.spark.engines
+options 
+(
+files "/user/cluster_admin/legend_facts.json"
+);
+
+show tables 
+using com.sap.spark.engines;
+
+# simple selects
+#################
+
+``select * from legend_dims`` 
+using com.sap.spark.engines;
+
+``select * from legend_facts`` 
+using com.sap.spark.engines;
+
+``select {playerid: "playerid"} from legend_dims`` 
+using com.sap.spark.engines;
+
+``select {name: "name"} from legend_dims`` 
+using com.sap.spark.engines;
+
+``select {fullname: "name"} from legend_dims`` 
+using com.sap.spark.engines;
+
+# filtering
+############
+
+``select * from legend_dims
+where "playerid" = 1`` 
+using com.sap.spark.engines;
+
+``select {fullname: "name"} from legend_dims
+where "placeofbirth"."city" = 'Belfast'`` 
+using com.sap.spark.engines;
+
+# arrays
+#########
+
+``select {fullname: "name", team: "played_for"[1]} 
+from legend_dims`` 
+using com.sap.spark.engines;
+
+``select {fullname: "name", team: "played_for"[1]."team"} 
+from legend_dims
+where "playerid" = 1``
+using com.sap.spark.engines;
+
+``select {fullname: "name", team: "played_for"[2]."team"} 
+from legend_dims
+where "playerid" = 1``
+using com.sap.spark.engines;
+
+# aggregations
+###############
+
+``select {playerid: "playerid", total_goals: sum("goalsscored")} 
+from legend_facts
+where "playerid" = 2
+group by "playerid"``
+using com.sap.spark.engines;
+
+``select {playerid: "playerid", 
+appearances: sum("appearances"),
+goalsscored: sum("goalsscored")} 
+from legend_facts
+where "playerid" = 2
+group by "playerid"``
+using com.sap.spark.engines;
+
+``select {playerid: "playerid", 
+appearances_per_goal: round(sum("goalsscored"/"appearances"),0)} 
+from legend_facts
+where "playerid" = 2
+group by "playerid"``
+using com.sap.spark.engines;
+
+# joins
+########
+
+# to demonstrate 2 pieces of the join: 1st piece
+select * from 
+(``select "playerid", "name"
+from legend_dims``
+using com.sap.spark.engines) as t1
+
+# to demonstrate 2 pieces of the join: 2nd piece
+select * from 
+(``select "playerid", sum("goalsscored") as goals 
+from legend_facts
+group by "playerid"``
+using com.sap.spark.engines) as t2
+
+# joining both pieces together
+select NAME, GOALS from 
+(``select "playerid", "name"
+from legend_dims``
+using com.sap.spark.engines) as t1,
+(``select "playerid", sum("goalsscored") as goals 
+from legend_facts
+group by "playerid"``
+using com.sap.spark.engines) as t2
+where
+t1.PLAYERID = t2.PLAYERID;
+
+# spark shell syntax 
+#####################
+
+import org.apache.spark.sql.SapSQLContext
+
+val vc = new SapSQLContext(sc)
+
+vc.sql("show tables").show
+
+val testsql = 
+"""create collection legend_dims using com.sap.spark.engines options (files "/user/cluster_admin/legend_dims.json", storagebackend "hdfs")"""
+
+vc.sql(testsql).show
+
+vc.sql("show tables using com.sap.spark.engines").show
+
+vc.sql("``select * from legend_dims`` using com.sap.spark.engines").show
